@@ -1,0 +1,86 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f0f2f5;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #1a73e8;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.last-update {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.gempa-list {
+    display: grid;
+    grid-gap: 15px;
+}
+
+.gempa-item {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.gempa-item:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s;
+}
+
+.gempa-magnitude {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ea4335;
+}
+
+.gempa-lokasi {
+    font-size: 18px;
+    margin: 10px 0;
+    color: #333;
+}
+
+.gempa-waktu {
+    color: #666;
+    font-size: 14px;
+}
+
+.gempa-kedalaman {
+    color: #666;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .gempa-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    .gempa-list {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
