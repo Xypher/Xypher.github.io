@@ -12,5 +12,3 @@ A real-time earthquake monitoring web application using official BMKG (Badan Met
 - 📱 **Responsive Design** - Tampilan optimal di semua device
 - 📊 **Detail Lengkap** - Menampilkan lokasi, kedalaman, koordinat, dan waktu kejadian
 - 🔄 **Auto-Refresh** - Pembaruan otomatis tanpa reload halaman
-- 🛡️ **Error Handling** - Sistem penanganan error dengan opsi retry
-- 🌐 **Multi-CORS Proxy** - Dukungan 3 cadangan proxy berbeda
