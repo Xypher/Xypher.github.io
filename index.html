@@ -3,24 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Info Gempa BMKG Terkini</title>
+    <title>Gempa Terkini - BMKG</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-earth-asia"></i> Info Gempa Terkini</h1>
-            <div class="last-update">
-                Update terakhir: <span id="update-time">-</span>
-                <button onclick="getGempaData()"><i class="fas fa-sync"></i> Refresh</button>
+    <div class="header">
+        <div class="header-content">
+            <h1>
+                <i class="fas fa-wave-square"></i>
+                Monitoring Gempa Bumi
+                <div class="subtitle">Badan Meteorologi, Klimatologi, dan Geofisika</div>
+            </h1>
+            <div class="header-info">
+                <div class="update-time">
+                    <i class="fas fa-clock"></i>
+                    Update: <span id="update-time">-</span>
+                </div>
+                <button class="refresh-btn" onclick="getGempaData()">
+                    <i class="fas fa-sync"></i>
+                    Refresh Data
+                </button>
             </div>
-        </header>
-        
-        <div class="gempa-container" id="gempa-container">
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                Memuat data gempa...
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid-container" id="gempa-container">
+            <!-- Skeleton Loading -->
+            <div class="skeleton-loading">
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+            </div>
+            
+            <!-- Error Message -->
+            <div class="error-message" id="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Gagal memuat data gempa</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-content">
+            <div class="source-info">
+                <i class="fas fa-database"></i>
+                Sumber Data: BMKG (Badan Meteorologi, Klimatologi, dan Geofisika)
+            </div>
+            <div class="credits">
+                © 2024 Monitoring Gempa | 
+                <a href="#" target="_blank">
+                    <i class="fas fa-code"></i>
+                    Developer Mode
+                </a>
             </div>
         </div>
     </div>

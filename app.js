@@ -1,57 +1,84 @@
 const GEMPA_API = 'https://api.allorigins.win/get?url=https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json';
 const container = document.getElementById('gempa-container');
-const loading = document.getElementById('loading');
+const errorMessage = document.getElementById('error-message');
 const updateTime = document.getElementById('update-time');
 
 moment.locale('id');
 
 async function getGempaData() {
     try {
-        showLoading();
+        // Tampilkan skeleton loading
+        container.innerHTML = `
+            <div class="skeleton-loading">
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+            </div>
+        `;
         
         const response = await fetch(GEMPA_API);
         const data = await response.json();
         const gempaData = JSON.parse(data.contents).Infogempa.gempa;
         
-        container.innerHTML = '';
+        // Update waktu
         updateTime.textContent = moment().format('DD MMMM YYYY HH:mm:ss');
         
-        gempaData.forEach(gempa => {
+        // Render data
+        container.innerHTML = '';
+        gempaData.forEach((gempa, index) => {
             const card = document.createElement('div');
             card.className = 'gempa-card';
             card.innerHTML = `
-                <div class="magnitude">${gempa.Magnitude}</div>
-                <div class="lokasi">${gempa.Wilayah}</div>
-                <div class="waktu">${moment(gempa.DateTime).format('dddd, DD MMMM YYYY HH:mm:ss')}</div>
-                <div class="detail">
-                    <div>Kedalaman: ${gempa.Kedalaman}</div>
-                    <div>Koordinat: ${gempa.Coordinates}</div>
-                    <div>Dirasakan: ${gempa.Dirasakan || '-'}</div>
+                <div class="magnitude" data-magnitude="${gempa.Magnitude}">
+                    <i class="fas fa-ruler-combined"></i>
+                    ${gempa.Magnitude} SR
+                </div>
+                
+                <div class="lokasi">
+                    <i class="fas fa-map-marker-alt"></i>
+                    ${gempa.Wilayah}
+                </div>
+                
+                <div class="detail-item">
+                    <i class="fas fa-clock"></i>
+                    ${moment(gempa.DateTime).format('dddd, DD MMM YYYY HH:mm')}
+                </div>
+                
+                <div class="detail-item">
+                    <i class="fas fa-ruler-vertical"></i>
+                    Kedalaman: ${gempa.Kedalaman}
+                </div>
+                
+                <div class="detail-item">
+                    <i class="fas fa-map-pin"></i>
+                    Koordinat: ${gempa.Coordinates}
+                </div>
+                
+                <div class="detail-item">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Dirasakan: ${gempa.Dirasakan || 'Tidak dilaporkan'}
                 </div>
             `;
+            
+            // Animasi fade in
+            card.style.animation = 'fadeIn 0.5s ease-out';
             container.appendChild(card);
         });
         
+        errorMessage.style.display = 'none';
+        
     } catch (error) {
         console.error('Error:', error);
-        container.innerHTML = `<div class="error">Gagal memuat data. Silakan refresh halaman.</div>`;
-    } finally {
-        hideLoading();
+        container.innerHTML = '';
+        errorMessage.style.display = 'flex';
     }
 }
 
-function showLoading() {
-    loading.style.display = 'flex';
-    container.style.opacity = '0.5';
-}
-
-function hideLoading() {
-    loading.style.display = 'none';
-    container.style.opacity = '1';
-}
+// Auto refresh setiap 1 menit
+setInterval(getGempaData, 60000);
 
 // Initial load
 getGempaData();
 
-// Auto-refresh every 5 minutes
-setInterval(getGempaData, 300000);
+// Refresh saat online kembali
+window.addEventListener('online', getGempaData);
