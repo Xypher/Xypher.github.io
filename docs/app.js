@@ -1,4 +1,4 @@
-const API_URL = 'https://cors-anywhere.herokuapp.com/https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json';
+const API_URL = 'https://api.allorigins.win/raw?url=https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json';
 const earthquakeGrid = document.getElementById('earthquake-grid');
 const errorContainer = document.getElementById('error-container');
 const updateTimeElement = document.getElementById('update-time');
