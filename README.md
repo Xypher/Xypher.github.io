@@ -1,7 +1,7 @@
 # 🌍 Live Earthquake Monitoring (BMKG) - Real-time Gempa Terkini
 
-[![GitHub License](https://img.shields.io/github/license/username/repo-name)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/demo-live-green)](https://username.github.io)
+[![GitHub License](https://img.shields.io/github/license/Xypher/Xypher.github.io)](LICENSE)
+[![GitHub Pages](https://img.shields.io/badge/demo-live-green)](https://xypher.github.io)
 [![BMKG Data](https://img.shields.io/badge/data_source-BMKG-orange)](https://bmkg.go.id)
 
 A real-time earthquake monitoring web application using official BMKG (Badan Meteorologi, Klimatologi, dan Geofisika) data. Built with modern web technologies and deployed on GitHub Pages.
