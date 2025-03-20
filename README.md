@@ -5,7 +5,6 @@
 
 A real-time earthquake monitoring web application using official BMKG (Badan Meteorologi, Klimatologi, dan Geofisika) data. Built with modern web technologies and deployed on GitHub Pages.
 
-![Preview](https://i.imgur.com/5zXJk9p.png)
 
 ## ✨ Fitur Utama
 - 🕒 **Update Real-time** - Data diperbarui setiap 1 menit
