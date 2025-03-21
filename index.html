@@ -48,6 +48,18 @@
             font-weight: bold;
         }
 
+        /* Animasi marker */
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.8; }
+        }
+
+        .quake-marker {
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 20px currentColor;
+        }
+
         @media (max-width: 768px) {
             #map {
                 height: 60vh;
@@ -92,21 +104,23 @@
         // Marker gempa
         let earthquakeMarker = null;
 
-        // Fungsi update peta
+        // Fungsi update peta dengan animasi
         function updateMap(coords, magnitude) {
             const [lat, lng] = coords.split(',').map(Number);
             
+            // Hapus marker lama
             if (earthquakeMarker) {
                 map.removeLayer(earthquakeMarker);
             }
 
+            // Buat marker baru dengan animasi
             earthquakeMarker = L.marker([lat, lng], {
                 icon: L.divIcon({
                     className: 'quake-marker',
                     html: `<div style="
                         background: ${getColor(magnitude)};
-                        width: 35px;
-                        height: 35px;
+                        width: 40px;
+                        height: 40px;
                         border-radius: 50%;
                         display: flex;
                         align-items: center;
@@ -114,14 +128,15 @@
                         color: white;
                         font-weight: bold;
                         border: 2px solid white;
-                        box-shadow: 0 0 15px ${getColor(magnitude)};
+                        transition: all 0.3s ease;
                     ">${magnitude}</div>`
                 })
             }).addTo(map);
 
-            map.setView([lat, lng], 7, {
+            // Animasi pergerakan peta
+            map.flyTo([lat, lng], 7, {
                 animate: true,
-                duration: 1
+                duration: 1.5
             });
         }
 
