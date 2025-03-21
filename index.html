@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemantau Gempa Indonesia</title>
+    <title>Pantau Gempa - BMKG+USGS</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #ffffff;
+            --bg: #f8f9fa;
             --text: #1a1a1a;
-            --card: #f8f9fa;
+            --card: #ffffff;
             --primary: #e74c3c;
-            --map-tile: brightness(1);
+            --map-tile: none;
         }
 
         [data-theme="dark"] {
-            --bg: #1a1a1a;
+            --bg: #121212;
             --text: #ffffff;
             --card: #2d2d2d;
             --primary: #ff6b6b;
@@ -26,18 +26,20 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
         }
 
         body {
             background: var(--bg);
             color: var(--text);
             transition: background 0.3s, color 0.3s;
+            line-height: 1.6;
         }
 
         #map {
             height: 60vh;
             width: 100%;
+            z-index: 1;
         }
 
         .container {
@@ -46,32 +48,35 @@
             padding: 1rem;
         }
 
-        .info-panel {
+        .info-card {
             background: var(--card);
             border-radius: 12px;
             padding: 1.5rem;
-            margin-top: 1rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin: 1rem 0;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
         }
 
         .magnitude {
             color: var(--primary);
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
         }
 
-        .theme-toggle {
+        .theme-btn {
             position: fixed;
             top: 1rem;
             right: 1rem;
             background: var(--card);
             border: none;
-            padding: 0.75rem 1.25rem;
-            border-radius: 8px;
+            padding: 0.75rem;
+            border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .leaflet-tile {
@@ -79,9 +84,9 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(0.9); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(0.9); }
+            0% { transform: scale(0.95); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(0.95); }
         }
 
         .quake-marker {
@@ -89,7 +94,7 @@
         }
 
         .loading {
-            padding: 1rem;
+            padding: 2rem;
             text-align: center;
             opacity: 0.8;
         }
@@ -99,27 +104,31 @@
                 height: 50vh;
             }
             
-            .info-panel {
+            .info-card {
                 padding: 1rem;
                 font-size: 0.9rem;
+            }
+            
+            .magnitude {
+                font-size: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <button class="theme-toggle" id="themeToggle">🌓 Tema</button>
+    <button class="theme-btn" id="themeBtn"></button>
     <div id="map"></div>
     
     <div class="container">
-        <div class="info-panel" id="info">
-            <div class="loading">Memuat data gempa terbaru...</div>
+        <div class="info-card" id="info">
+            <div class="loading">Memuat data gempa terkini...</div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Konfigurasi
-        const config = {
+        const CONFIG = {
             sources: [
                 {
                     name: 'BMKG',
@@ -138,110 +147,171 @@
         // Inisialisasi Peta
         let map = L.map('map', {
             zoomControl: false,
-            fadeAnimation: true
-        }).setView([-2.5489, 118.0149], 5);
-
+            preferCanvas: true
+        });
         let currentMarker = null;
 
-        // Tema Awal
-        const savedTheme = localStorage.getItem('theme') || 'auto';
-        setTheme(savedTheme);
-
-        // Fungsi Tema
-        function setTheme(theme) {
-            if (theme === 'dark') {
+        // Sistem Tema
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'auto';
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (savedTheme === 'auto' && systemDark)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
-            } else if (theme === 'light') {
-                document.documentElement.removeAttribute('data-theme');
-            } else {
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                document.documentElement.toggleAttribute('data-theme', prefersDark);
             }
-            localStorage.setItem('theme', theme);
         }
 
         // Toggle Tema
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            const currentTheme = document.documentElement.hasAttribute('data-theme') ? 'dark' : 'light';
-            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        document.getElementById('themeBtn').addEventListener('click', () => {
+            const isDark = document.documentElement.hasAttribute('data-theme');
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+            updateMapTheme();
         });
+
+        // Update Tema Peta
+        function updateMapTheme() {
+            const isDark = document.documentElement.hasAttribute('data-theme');
+            const baseLayer = isDark ? darkLayer : lightLayer;
+            
+            map.eachLayer(layer => layer.remove());
+            baseLayer.addTo(map);
+            if (currentMarker) currentMarker.addTo(map);
+        }
+
+        // Layer Peta
+        const lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
         // Parser Koordinat BMKG
         function parseBMKGCoordinates(coordString) {
-            const [latPart, lngPart] = coordString.split(', ');
-            const lat = parseFloat(latPart.replace(' LS', '').replace(' LU', ''));
-            const lng = parseFloat(lngPart.replace(' BT', '').replace(' BB', ''));
+            const cleaned = coordString
+                .replace(/[^0-9.,\- LSBT]/g, '')
+                .replace(/(LS|LU|BT|BB)/g, ' $1 ')
+                .split(/[ ,]+/)
+                .filter(p => p);
+
+            let lat = 0, lng = 0;
             
-            return [
-                latPart.includes('LS') ? -lat : lat,
-                lngPart.includes('BB') ? -lng : lng
-            ];
+            try {
+                const latParts = cleaned.filter(p => p === 'LS' || p === 'LU');
+                const lngParts = cleaned.filter(p => p === 'BT' || p === 'BB');
+                
+                if (latParts.length > 0) {
+                    const idx = cleaned.indexOf(latParts[0]);
+                    lat = parseFloat(cleaned[idx - 1]);
+                    if (latParts[0] === 'LS') lat *= -1;
+                }
+                
+                if (lngParts.length > 0) {
+                    const idx = cleaned.indexOf(lngParts[0]);
+                    lng = parseFloat(cleaned[idx - 1]);
+                    if (lngParts[0] === 'BB') lng *= -1;
+                }
+            } catch (error) {
+                console.error('Error parsing coordinates:', error);
+            }
+            
+            return [lat, lng];
         }
 
         // Parser Data BMKG
         function parseBMKGData(data) {
-            const gempa = data?.Infogempa?.gempa;
-            if (!gempa) return null;
-
-            const [lat, lng] = parseBMKGCoordinates(gempa.Coordinates);
-            
-            return {
-                magnitude: parseFloat(gempa.Magnitude),
-                coordinates: [lat, lng],
-                waktu: new Date(gempa.DateTime),
-                lokasi: gempa.Wilayah,
-                kedalaman: gempa.Kedalaman
-            };
+            try {
+                const gempa = data.Infogempa.gempa;
+                const [lat, lng] = parseBMKGCoordinates(gempa.Coordinates);
+                
+                return {
+                    magnitude: parseFloat(gempa.Magnitude),
+                    coordinates: [lat, lng],
+                    time: new Date(gempa.DateTime),
+                    location: gempa.Wilayah,
+                    depth: gempa.Kedalaman,
+                    source: 'BMKG'
+                };
+            } catch (error) {
+                console.error('BMKG parse error:', error);
+                return null;
+            }
         }
 
         // Parser Data USGS
         function parseUSGSData(data) {
-            const quake = data.features
-                ?.find(f => f.properties.place.toLowerCase().includes('indonesia'));
-            
-            if (!quake) return null;
-
-            return {
-                magnitude: quake.properties.mag,
-                coordinates: [quake.geometry.coordinates[1], quake.geometry.coordinates[0]],
-                waktu: new Date(quake.properties.time),
-                lokasi: quake.properties.place,
-                kedalaman: quake.geometry.coordinates[2]
-            };
+            try {
+                const quake = data.features.find(f => 
+                    f.properties.place.toLowerCase().includes('indonesia')
+                );
+                
+                return {
+                    magnitude: quake.properties.mag,
+                    coordinates: [
+                        quake.geometry.coordinates[1],
+                        quake.geometry.coordinates[0]
+                    ],
+                    time: new Date(quake.properties.time),
+                    location: quake.properties.place,
+                    depth: quake.geometry.coordinates[2],
+                    source: 'USGS'
+                };
+            } catch (error) {
+                console.error('USGS parse error:', error);
+                return null;
+            }
         }
 
-        // Fetch Data
+        // Ambil Data Gempa
         async function fetchQuakeData() {
-            for (const source of config.sources) {
+            for (const source of CONFIG.sources) {
                 try {
                     const response = await fetch(source.url);
                     const data = await response.json();
-                    const parsed = source.parser(source.name === 'BMKG' ? JSON.parse(data.contents) : data);
-                    if (parsed) return parsed;
+                    const result = source.parser(data);
+                    if (result && isValidCoordinate(result.coordinates)) return result;
                 } catch (error) {
-                    console.error(`Error dari ${source.name}:`, error);
+                    console.error(`${source.name} error:`, error);
                 }
             }
             return null;
         }
 
-        // Update Peta
-        async function updateMap() {
-            const quakeData = await fetchQuakeData();
-            if (!quakeData) {
-                showError('Tidak dapat memuat data gempa');
-                return;
-            }
+        // Validasi Koordinat
+        function isValidCoordinate([lat, lng]) {
+            return (
+                !isNaN(lat) && !isNaN(lng) &&
+                lat >= -90 && lat <= 90 &&
+                lng >= -180 && lng <= 180
+            );
+        }
 
-            // Update Marker
+        // Update Peta dan Info
+        async function updateDisplay() {
+            try {
+                const quake = await fetchQuakeData();
+                if (!quake) throw new Error('Tidak ada data gempa tersedia');
+                
+                updateMarker(quake);
+                updateInfo(quake);
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Update Marker
+        function updateMarker(quake) {
             if (currentMarker) map.removeLayer(currentMarker);
-            currentMarker = L.marker(quakeData.coordinates, {
+            
+            currentMarker = L.marker(quake.coordinates, {
                 icon: L.divIcon({
                     className: 'quake-marker',
                     html: `<div style="
-                        background: ${getColor(quakeData.magnitude)};
-                        width: 40px;
-                        height: 40px;
+                        background: ${getColor(quake.magnitude)};
+                        width: 42px;
+                        height: 42px;
                         border-radius: 50%;
                         display: flex;
                         align-items: center;
@@ -249,25 +319,42 @@
                         color: white;
                         font-weight: bold;
                         border: 2px solid white;
-                        box-shadow: 0 0 15px ${getColor(quakeData.magnitude)};
-                    ">${quakeData.magnitude.toFixed(1)}</div>`
+                        box-shadow: 0 0 12px ${getColor(quake.magnitude)};
+                    ">${quake.magnitude.toFixed(1)}</div>`,
+                    iconSize: [42, 42],
+                    iconAnchor: [21, 21]
                 })
             }).addTo(map);
 
-            // Update View
-            map.flyTo(quakeData.coordinates, 7, { duration: 1.5 });
+            map.flyTo(quake.coordinates, 7, {
+                animate: true,
+                duration: 1.5
+            });
+        }
 
-            // Update Info
+        // Update Info
+        function updateInfo(quake) {
+            const options = { 
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Jakarta'
+            };
+
             document.getElementById('info').innerHTML = `
-                <div class="magnitude">${quakeData.magnitude.toFixed(1)} SR</div>
-                <div><strong>Lokasi:</strong> ${quakeData.lokasi}</div>
-                <div><strong>Kedalaman:</strong> ${quakeData.kedalaman}</div>
-                <div><strong>Waktu:</strong> ${quakeData.waktu.toLocaleString('id-ID')}</div>
+                <div class="magnitude">${quake.magnitude.toFixed(1)} SR</div>
+                <div><strong>Sumber:</strong> ${quake.source}</div>
+                <div><strong>Lokasi:</strong> ${quake.location}</div>
+                <div><strong>Kedalaman:</strong> ${quake.depth}</div>
+                <div><strong>Waktu:</strong> ${quake.time.toLocaleString('id-ID', options)}</div>
                 <div><strong>Koordinat:</strong> 
-                    ${Math.abs(quakeData.coordinates[0].toFixed(2))}° 
-                    ${quakeData.coordinates[0] > 0 ? 'LU' : 'LS'}, 
-                    ${Math.abs(quakeData.coordinates[1].toFixed(2))}° 
-                    ${quakeData.coordinates[1] > 0 ? 'BT' : 'BB'}
+                    ${Math.abs(quake.coordinates[0].toFixed(3))}� 
+                    ${quake.coordinates[0] > 0 ? 'LU' : 'LS'}, 
+                    ${Math.abs(quake.coordinates[1].toFixed(3))}� 
+                    ${quake.coordinates[1] > 0 ? 'BT' : 'BB'}
                 </div>
             `;
         }
@@ -283,18 +370,17 @@
         // Error Handling
         function showError(message) {
             document.getElementById('info').innerHTML = `
-                <div style="color: var(--primary)">⚠️ ${message}</div>
+                <div style="color: var(--primary)">
+                     ${message}
+                </div>
             `;
         }
 
-        // Inisialisasi Peta
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        // Auto Update
-        updateMap();
-        setInterval(updateMap, config.updateInterval);
+        // Inisialisasi
+        initTheme();
+        updateMapTheme();
+        updateDisplay();
+        setInterval(updateDisplay, CONFIG.updateInterval);
     </script>
 </body>
 </html>
