@@ -1,34 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earthquake Tracker Pro</title>
+    <title>Pemantau Gempa Indonesia</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
             --bg: #ffffff;
             --text: #1a1a1a;
             --card: #f8f9fa;
-            --primary: #ff4757;
-            --map-tile-filter: none;
+            --primary: #e74c3c;
+            --map-tile: brightness(1);
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #1a1a1a;
-                --text: #ffffff;
-                --card: #2d2d2d;
-                --primary: #ff6b6b;
-                --map-tile-filter: brightness(0.8) invert(1) contrast(1.2);
-            }
+        [data-theme="dark"] {
+            --bg: #1a1a1a;
+            --text: #ffffff;
+            --card: #2d2d2d;
+            --primary: #ff6b6b;
+            --map-tile: invert(1) hue-rotate(180deg) brightness(0.8);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -48,7 +46,7 @@
             padding: 1rem;
         }
 
-        .quake-card {
+        .info-panel {
             background: var(--card);
             border-radius: 12px;
             padding: 1.5rem;
@@ -60,10 +58,7 @@
             color: var(--primary);
             font-size: 1.8rem;
             font-weight: 700;
-        }
-
-        .leaflet-tile {
-            filter: var(--map-tile-filter);
+            margin-bottom: 0.5rem;
         }
 
         .theme-toggle {
@@ -72,10 +67,15 @@
             right: 1rem;
             background: var(--card);
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 1.25rem;
             border-radius: 8px;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .leaflet-tile {
+            filter: var(--map-tile);
         }
 
         @keyframes pulse {
@@ -89,7 +89,7 @@
         }
 
         .loading {
-            padding: 2rem;
+            padding: 1rem;
             text-align: center;
             opacity: 0.8;
         }
@@ -99,7 +99,7 @@
                 height: 50vh;
             }
             
-            .quake-card {
+            .info-panel {
                 padding: 1rem;
                 font-size: 0.9rem;
             }
@@ -107,12 +107,12 @@
     </style>
 </head>
 <body>
-    <button class="theme-toggle" id="themeToggle">Toggle Theme</button>
+    <button class="theme-toggle" id="themeToggle">🌓 Tema</button>
     <div id="map"></div>
     
     <div class="container">
-        <div class="quake-card" id="quakeInfo">
-            <div class="loading">Mendeteksi gempa terkini...</div>
+        <div class="info-panel" id="info">
+            <div class="loading">Memuat data gempa terbaru...</div>
         </div>
     </div>
 
@@ -120,73 +120,126 @@
     <script>
         // Konfigurasi
         const config = {
-            apiUrl: 'https://corsproxy.io/?https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json',
-            mapCenter: [-2.5489, 118.0149],
-            mapZoom: 5
+            sources: [
+                {
+                    name: 'BMKG',
+                    url: 'https://api.allorigins.win/get?url=https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json',
+                    parser: parseBMKGData
+                },
+                {
+                    name: 'USGS',
+                    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
+                    parser: parseUSGSData
+                }
+            ],
+            updateInterval: 300000 // 5 menit
         };
 
         // Inisialisasi Peta
-        let map = L.map('map').setView(config.mapCenter, config.mapZoom);
+        let map = L.map('map', {
+            zoomControl: false,
+            fadeAnimation: true
+        }).setView([-2.5489, 118.0149], 5);
+
         let currentMarker = null;
 
-        // Layer Peta
-        const baseLayers = {
-            Street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }),
-            Satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
-        };
+        // Tema Awal
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        setTheme(savedTheme);
 
-        // Update Tema
-        function updateMapTheme() {
-            const isDark = document.documentElement.style.getPropertyValue('--bg') === '#1a1a1a';
-            map.eachLayer(layer => layer.remove());
-            
-            if (isDark) {
-                baseLayers.Street.addTo(map);
+        // Fungsi Tema
+        function setTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else if (theme === 'light') {
+                document.documentElement.removeAttribute('data-theme');
             } else {
-                baseLayers.Satellite.addTo(map);
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.toggleAttribute('data-theme', prefersDark);
             }
+            localStorage.setItem('theme', theme);
         }
 
-        // Toggle Tema Manual
+        // Toggle Tema
         document.getElementById('themeToggle').addEventListener('click', () => {
-            const isDark = document.documentElement.style.getPropertyValue('--bg') === '#1a1a1a';
-            document.documentElement.style.setProperty('--bg', isDark ? '#ffffff' : '#1a1a1a');
-            document.documentElement.style.setProperty('--text', isDark ? '#1a1a1a' : '#ffffff');
-            document.documentElement.style.setProperty('--card', isDark ? '#f8f9fa' : '#2d2d2d');
-            document.documentElement.style.setProperty('--primary', isDark ? '#ff4757' : '#ff6b6b');
-            updateMapTheme();
+            const currentTheme = document.documentElement.hasAttribute('data-theme') ? 'dark' : 'light';
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
         });
 
-        // Fetch Data Gempa
-        async function getQuakeData() {
-            try {
-                const response = await fetch(config.apiUrl);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return await response.json();
-            } catch (error) {
-                console.error('Fetch error:', error);
-                showError('Gagal memuat data. Coba refresh halaman');
-                return null;
-            }
+        // Parser Koordinat BMKG
+        function parseBMKGCoordinates(coordString) {
+            const [latPart, lngPart] = coordString.split(', ');
+            const lat = parseFloat(latPart.replace(' LS', '').replace(' LU', ''));
+            const lng = parseFloat(lngPart.replace(' BT', '').replace(' BB', ''));
+            
+            return [
+                latPart.includes('LS') ? -lat : lat,
+                lngPart.includes('BB') ? -lng : lng
+            ];
         }
 
-        // Update Peta dan Info
-        async function updateQuakeInfo() {
-            const data = await getQuakeData();
-            if (!data || !data.features.length) return;
+        // Parser Data BMKG
+        function parseBMKGData(data) {
+            const gempa = data?.Infogempa?.gempa;
+            if (!gempa) return null;
 
-            const latestQuake = data.features[0].properties;
-            const [lng, lat] = data.features[0].geometry.coordinates;
+            const [lat, lng] = parseBMKGCoordinates(gempa.Coordinates);
+            
+            return {
+                magnitude: parseFloat(gempa.Magnitude),
+                coordinates: [lat, lng],
+                waktu: new Date(gempa.DateTime),
+                lokasi: gempa.Wilayah,
+                kedalaman: gempa.Kedalaman
+            };
+        }
+
+        // Parser Data USGS
+        function parseUSGSData(data) {
+            const quake = data.features
+                ?.find(f => f.properties.place.toLowerCase().includes('indonesia'));
+            
+            if (!quake) return null;
+
+            return {
+                magnitude: quake.properties.mag,
+                coordinates: [quake.geometry.coordinates[1], quake.geometry.coordinates[0]],
+                waktu: new Date(quake.properties.time),
+                lokasi: quake.properties.place,
+                kedalaman: quake.geometry.coordinates[2]
+            };
+        }
+
+        // Fetch Data
+        async function fetchQuakeData() {
+            for (const source of config.sources) {
+                try {
+                    const response = await fetch(source.url);
+                    const data = await response.json();
+                    const parsed = source.parser(source.name === 'BMKG' ? JSON.parse(data.contents) : data);
+                    if (parsed) return parsed;
+                } catch (error) {
+                    console.error(`Error dari ${source.name}:`, error);
+                }
+            }
+            return null;
+        }
+
+        // Update Peta
+        async function updateMap() {
+            const quakeData = await fetchQuakeData();
+            if (!quakeData) {
+                showError('Tidak dapat memuat data gempa');
+                return;
+            }
 
             // Update Marker
             if (currentMarker) map.removeLayer(currentMarker);
-            currentMarker = L.marker([lat, lng], {
+            currentMarker = L.marker(quakeData.coordinates, {
                 icon: L.divIcon({
                     className: 'quake-marker',
                     html: `<div style="
-                        background: ${getColor(latestQuake.mag)};
+                        background: ${getColor(quakeData.magnitude)};
                         width: 40px;
                         height: 40px;
                         border-radius: 50%;
@@ -196,43 +249,52 @@
                         color: white;
                         font-weight: bold;
                         border: 2px solid white;
-                        box-shadow: 0 0 15px ${getColor(latestQuake.mag)};
-                    ">${latestQuake.mag.toFixed(1)}</div>`
+                        box-shadow: 0 0 15px ${getColor(quakeData.magnitude)};
+                    ">${quakeData.magnitude.toFixed(1)}</div>`
                 })
-            }).addTo(map).bindPopup(latestQuake.title);
+            }).addTo(map);
 
             // Update View
-            map.flyTo([lat, lng], 6, { duration: 1.5 });
+            map.flyTo(quakeData.coordinates, 7, { duration: 1.5 });
 
             // Update Info
-            document.getElementById('quakeInfo').innerHTML = `
-                <div class="magnitude">${latestQuake.mag.toFixed(1)} M</div>
-                <div><strong>Lokasi:</strong> ${latestQuake.place}</div>
-                <div><strong>Kedalaman:</strong> ${(latestQuake.depth).toFixed(1)} km</div>
-                <div><strong>Waktu:</strong> ${new Date(latestQuake.time).toLocaleString('id-ID')}</div>
-                <div><strong>Koordinat:</strong> ${lat.toFixed(2)}° LU, ${lng.toFixed(2)}° BT</div>
+            document.getElementById('info').innerHTML = `
+                <div class="magnitude">${quakeData.magnitude.toFixed(1)} SR</div>
+                <div><strong>Lokasi:</strong> ${quakeData.lokasi}</div>
+                <div><strong>Kedalaman:</strong> ${quakeData.kedalaman}</div>
+                <div><strong>Waktu:</strong> ${quakeData.waktu.toLocaleString('id-ID')}</div>
+                <div><strong>Koordinat:</strong> 
+                    ${Math.abs(quakeData.coordinates[0].toFixed(2))}° 
+                    ${quakeData.coordinates[0] > 0 ? 'LU' : 'LS'}, 
+                    ${Math.abs(quakeData.coordinates[1].toFixed(2))}° 
+                    ${quakeData.coordinates[1] > 0 ? 'BT' : 'BB'}
+                </div>
             `;
         }
 
-        // Warna Berdasarkan Magnitude
+        // Warna Marker
         function getColor(mag) {
             return mag >= 7 ? '#ff0000' :
                    mag >= 6 ? '#ff6b6b' :
                    mag >= 5 ? '#ffd700' :
-                               '#00c851';
+                              '#2ecc71';
         }
 
         // Error Handling
         function showError(message) {
-            document.getElementById('quakeInfo').innerHTML = `
+            document.getElementById('info').innerHTML = `
                 <div style="color: var(--primary)">⚠️ ${message}</div>
             `;
         }
 
-        // Inisialisasi
-        updateMapTheme();
-        updateQuakeInfo();
-        setInterval(updateQuakeInfo, 300000);
+        // Inisialisasi Peta
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Auto Update
+        updateMap();
+        setInterval(updateMap, config.updateInterval);
     </script>
 </body>
 </html>
