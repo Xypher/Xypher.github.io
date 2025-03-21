@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Quake Monitor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #ff4757;
+            --background: #1a1a1a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: var(--background);
+            color: white;
+            min-height: 100vh;
+        }
+
+        #map {
+            height: 70vh;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .quake-info {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 8px;
+        }
+
+        .magnitude {
+            color: var(--primary);
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            #map {
+                height: 60vh;
+            }
+            
+            .quake-info {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="container">
+        <div class="quake-info" id="info">
+            <div class="loading">Memuat data gempa terbaru...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Konfigurasi awal peta
+        let map = L.map('map', {
+            zoomControl: false,
+            fadeAnimation: true
+        }).setView([-2.5489, 118.0149], 5);
+
+        // Layer peta default
+        const baseMaps = {
+            "Gelap": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap'
+            }),
+            "Terang": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            })
+        };
+
+        baseMaps.Gelap.addTo(map);
+        L.control.layers(baseMaps).addTo(map);
+
+        // Marker gempa
+        let earthquakeMarker = null;
+
+        // Fungsi update peta
+        function updateMap(coords, magnitude) {
+            const [lat, lng] = coords.split(',').map(Number);
+            
+            if (earthquakeMarker) {
+                map.removeLayer(earthquakeMarker);
+            }
+
+            earthquakeMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'quake-marker',
+                    html: `<div style="
+                        background: ${getColor(magnitude)};
+                        width: 35px;
+                        height: 35px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: bold;
+                        border: 2px solid white;
+                        box-shadow: 0 0 15px ${getColor(magnitude)};
+                    ">${magnitude}</div>`
+                })
+            }).addTo(map);
+
+            map.setView([lat, lng], 7, {
+                animate: true,
+                duration: 1
+            });
+        }
+
+        // Warna berdasarkan magnitude
+        function getColor(mag) {
+            return mag >= 7 ? '#ff0000' :
+                   mag >= 6 ? '#ff6b6b' :
+                   mag >= 5 ? '#ffd700' :
+                               '#00ff88';
+        }
+
+        // Ambil data BMKG
+        async function getQuakeData() {
+            try {
+                const response = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json');
+                const data = await response.json();
+                return data.Infogempa.gempa;
+            } catch (error) {
+                console.error('Gagal mengambil data:', error);
+                showError('Gagal memuat data. Coba refresh halaman');
+                return null;
+            }
+        }
+
+        // Update info gempa
+        function updateInfo(quake) {
+            const infoDiv = document.getElementById('info');
+            infoDiv.innerHTML = `
+                <div class="magnitude">${quake.Magnitude} SR</div>
+                <div>Lokasi: ${quake.Wilayah}</div>
+                <div>Kedalaman: ${quake.Kedalaman}</div>
+                <div>Waktu: ${new Date(quake.DateTime).toLocaleString('id-ID')}</div>
+                <div>Koordinat: ${quake.Coordinates}</div>
+            `;
+        }
+
+        // Fungsi utama
+        async function update() {
+            const quakeData = await getQuakeData();
+            if (quakeData) {
+                updateMap(quakeData.Coordinates, quakeData.Magnitude);
+                updateInfo(quakeData);
+            }
+        }
+
+        // Jalankan update pertama dan setiap 5 menit
+        update();
+        setInterval(update, 300000);
+
+        // Error handling
+        function showError(msg) {
+            const infoDiv = document.getElementById('info');
+            infoDiv.innerHTML = `<div style="color: #ff4757">${msg}</div>`;
+        }
+    </script>
+</body>
+</html>
